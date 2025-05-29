@@ -3,6 +3,7 @@
 
 int main()
 {
+    check_amx_support();
     printf("here");
        // Request permission to linux kernel to run AMX
    if (!set_tiledata_use())
