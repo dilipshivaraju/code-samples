@@ -1,15 +1,21 @@
 #include <bfloat16.h>
 #include <amx.h>
+#include <memory>
 
 int main()
 {
-    check_amx_support();
-    printf("here");
-       // Request permission to linux kernel to run AMX
+    // check if current processor supports
+    if(!check_amx_support()) {
+        printf("AMX not supported on this platform\n");
+        exit(-1);
+    }
+    
+    // Request linux kernel's permission to run AMX
    if (!set_tiledata_use())
       exit(-1);
-    
-    BFloat16 *A = new BFloat16[1048576];
+
+    //BFloat16 *A = new BFloat16[1048576];
+    std::unique_ptr<BFloat16[]> A = std::make_unique<BFloat16[]>(1048576);
     for(int idx = 0; idx < 1048576; idx++) {
         if (idx % 2 == 0)
             A[idx] = 1.0;
@@ -90,7 +96,7 @@ int main()
 
     int T_R = 64, T_K = 32, T_C = 64;
 
-    char *a = (char *)A;
+    char *a = (char *)A.get();
     char *b = (char *)B_new;
     char *c = (char *)res_test;
 
@@ -117,7 +123,7 @@ int main()
 
     printf("fine\n");
 
-    delete [] A;
+    //delete [] A;
     delete [] B;
     delete [] B_new;
     delete [] res;
