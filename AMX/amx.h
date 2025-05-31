@@ -29,11 +29,7 @@ bool check_amx_support() {
     
     bool amx_tile = (edx >> 24) & 1;  // Bit 24
     bool amx_bf16 = (edx >> 22) & 1;  // Bit 22  
-    
-    printf("AMX-TILE: %s\n", amx_tile ? "Yes" : "No");
-    printf("AMX-BF16: %s\n", amx_bf16 ? "Yes" : "No");
-    //printf("AMX-INT8: %s\n", amx_int8 ? "Yes" : "No");
-    
+
     return amx_tile && amx_bf16;
 }
 
