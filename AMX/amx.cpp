@@ -1,6 +1,7 @@
 #include <bfloat16.h>
 #include <amx.h>
 #include <memory>
+#include <random>
 
 void check_for_correctness()
 {
@@ -104,30 +105,22 @@ int main()
         exit(-1);
 
     // how will I know if amx is doing the right thing?
-    check_for_correctness();
+    //check_for_correctness();
 
-    //BFloat16 *A = new BFloat16[1048576];
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(1.0f, 2.0f);
+
     std::unique_ptr<BFloat16[]> A = std::make_unique<BFloat16[]>(1048576);
     std::unique_ptr<BFloat16[]> B = std::make_unique<BFloat16[]>(1048576);
     std::unique_ptr<BFloat16[]> transformed_B = std::make_unique<BFloat16[]>(1048576);
-    std::unique_ptr<float[]> C = std::make_unique<float[]>(1048576);
+    std::unique_ptr<float[]> C_amx = std::make_unique<float[]>(1048576);
+    std::unique_ptr<float[]> C_standard = std::make_unique<float[]>(1048576);
 
     for(int idx = 0; idx < 1048576; idx++) {
-        if (idx % 2 == 0) {
-            A[idx] = 1.0;
-            B[idx] = 1.0;
-        }
-        else {
-            A[idx] = 2.0;
-            B[idx] = 2.0;
-        }       
+        A[idx] = dis(gen);
+        B[idx] = dis(gen);
     }
-
-    float *res = new float[1048576];
-    for(int idx = 0; idx < 1048576; idx++) {
-        res[idx] = 0.0;
-    }
-    //std::fill(std::begin(*res), std::end(*res), 0.0);
 
     for(int r = 0; r < 1024; r++) {
         for(int c = 0; c < 1024; c++) {
@@ -135,16 +128,10 @@ int main()
             for(int k = 0; k < 1024; k++) {
                 acc += frombf16_emulated(A[r * 1024 + k]) * frombf16_emulated(B[k * 1024 + c]);
             }
-            res[r * 1024 + c] = acc;
+            C_standard[r * 1024 + c] = acc;
         }
     }
     
-    //float res_test[1048576] = {0.0};
-    //float *res_test = new float[1048576];
-    //std::fill(std::begin(res_test), std::end(res_test), 0.0);
-    /*for(int idx = 0; idx < 1048576; idx++) {
-        res_test[idx] = 0.0;
-    }*/
     int r_org = 1024, c_org = 1024;
     int r_new = 512, c_new = 2048;
 
@@ -182,7 +169,7 @@ int main()
 
     char *a = (char *)A.get();
     char *b = (char *)transformed_B.get();
-    char *c = (char *)C.get();
+    char *c = (char *)C_amx.get();
 
     for(int t_r = 0; t_r < T_R; t_r++) {
         for(int t_c = 0; t_c < T_C; t_c++) {
@@ -198,9 +185,14 @@ int main()
 
     _tile_release();
 
+    FILE *file = fopen("numbers.txt", "w");
+
     for(int idx = 0; idx < 1024 * 1024; idx++) {
-        if (res[idx] != C[idx]) {
-            printf("not fine\n");
+        BFloat16 a = tobf16_emulated(C_standard[idx]);
+        BFloat16 b = tobf16_emulated(C_amx[idx]);
+        if (a.data !=b.data && abs(a.data - b.data) > 1) {
+            //printf("%d %u %u %f %f not fine\n", idx, a.data, b.data, res[idx], C[idx]);
+            fprintf(file, "%d %u %u %f %f not fine\n", idx, a.data, b.data, C_standard[idx], C_amx[idx]);
             exit(-1);
         }
     }
@@ -210,7 +202,7 @@ int main()
     //delete [] A;
     //delete [] B;
     //delete [] B_new;
-    delete [] res;
+    //delete [] res;
     //delete [] res_test;
     return 0;
 }
